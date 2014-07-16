@@ -119,6 +119,7 @@ doublePt pt = pt .+ pt
 sumPts :: (Eq k, Fractional k) => [Point k] -> Point k
 sumPts = foldr (.+) InfPt
 
+--Calculate a linear combination of points with integer coefficients
 combinePts :: (Eq k, Fractional k) => [(Integer , Point k)] -> Point k
 combinePts [] = InfPt
 combinePts terms

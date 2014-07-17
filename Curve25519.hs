@@ -133,4 +133,7 @@ combinePts terms
 (.*) :: (Eq k, Fractional k) => Integer -> Point k -> Point k
 n .* pt = combinePts [(n , pt)]
 
+basePt :: (Eq k, Fractional k) => Point k
+basePt = Pt 9 14781619447589544791020593568409986887264606134616475288964881837755586237401
+
 infixr 7 .*

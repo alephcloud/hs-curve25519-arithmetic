@@ -3,8 +3,8 @@
 -- ------------------------------------------------------ --
 
 module Curve25519
-    ( FieldP (FieldP)
-    , FieldPSq (FieldPSq)
+    ( FieldP
+    , FieldPSq
     , sqrt2
     , fromFieldP
     , Point (InfPt, Pt)
@@ -95,6 +95,7 @@ negPt InfPt = InfPt
 negPt (Pt x y) = Pt x (negate y)
 
 (.+) :: (Eq k, Fractional k) => Point k -> Point k -> Point k
+infixr 6 .+
 InfPt .+ pt = pt
 pt .+ InfPt = pt
 pt@(Pt x y) .+ pt'@(Pt x' y')
@@ -106,12 +107,9 @@ pt@(Pt x y) .+ pt'@(Pt x' y')
             y'' = m*(x-x'')-y
         in Pt x'' y''
 
-infixr 6 .+
-
 (.-) :: (Eq k, Fractional k) => Point k -> Point k -> Point k
-pt .- pt' = pt .+ (negPt pt')
-
 infixl 6 .-
+pt .- pt' = pt .+ (negPt pt')
 
 doublePt :: (Eq k, Fractional k) => Point k -> Point k
 doublePt pt = pt .+ pt
@@ -131,9 +129,8 @@ combinePts terms
     = combinePts [(abs n , if n < 0 then negPt pt else pt) | (n , pt) <- terms]
 
 (.*) :: (Eq k, Fractional k) => Integer -> Point k -> Point k
+infixr 7 .*
 n .* pt = combinePts [(n , pt)]
 
 basePt :: (Eq k, Fractional k) => Point k
 basePt = Pt 9 14781619447589544791020593568409986887264606134616475288964881837755586237401
-
-infixr 7 .*

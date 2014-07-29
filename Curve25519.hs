@@ -17,9 +17,13 @@ module Curve25519
     , sumPts
     , combinePts
     , (.*)
+    , dhArith
     ) where
 
 import Data.Ratio (numerator, denominator)
+import Math.NumberTheory.Moduli (sqrtModP)
+import Control.Applicative ((<|>))
+import Data.Maybe (fromJust)
 
 inv :: Integer -> Integer -> Integer
 inv = xEuclid 1 0 0 1 where
@@ -134,3 +138,30 @@ n .* pt = combinePts [(n , pt)]
 
 basePt :: (Eq k, Fractional k) => Point k
 basePt = Pt 9 14781619447589544791020593568409986887264606134616475288964881837755586237401
+
+x0 :: Point FieldPSq -> FieldPSq
+x0 InfPt = 0
+x0 (Pt x _) = x
+
+maybeY1 :: FieldP -> Maybe FieldPSq
+maybeY1 x = fmap fromInteger (sqrtModP ySq p)
+  where
+    FieldP ySq = x^3 + a*x^2 + x
+
+maybeY2 :: FieldP -> Maybe FieldPSq
+maybeY2 x = fmap ((sqrt2 *) . fromInteger) (sqrtModP ySqHlf p)
+  where
+    FieldP ySqHlf = (x^3 + a*x^2 + x) / 2
+
+maybeY :: FieldP -> Maybe FieldPSq
+maybeY x = if x == 0 then Just 0 else (maybeY1 x <|> maybeY2 x)
+
+unsafeY :: FieldP -> FieldPSq
+unsafeY = fromJust . maybeY
+
+castDown :: FieldPSq -> FieldP
+castDown (FieldPSq x _) = x
+
+dhArith :: Integer -> FieldP -> FieldP
+dhArith sk pk = castDown . x0 $
+    sk .* (Pt (fromFieldP pk) (unsafeY pk))

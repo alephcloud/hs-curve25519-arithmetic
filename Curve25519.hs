@@ -22,8 +22,17 @@ module Curve25519
 
 import Data.Ratio (numerator, denominator)
 import Math.NumberTheory.Moduli (sqrtModP)
-import Control.Applicative ((<|>))
+import Control.Applicative ((<|>), (<$>))
 import Data.Maybe (fromJust)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Internal as B (unsafeCreate, memcpy)
+import Data.Byteable
+import Data.Bits ((.&.), (.|.))
+import Data.Word
+import Foreign.Ptr (Ptr)
+import Foreign.Storable
+import Crypto.Number.Serialize
 
 inv :: Integer -> Integer -> Integer
 inv = xEuclid 1 0 0 1 where
@@ -165,3 +174,21 @@ castDown (FieldPSq x _) = x
 dhArith :: Integer -> FieldP -> FieldP
 dhArith sk pk = castDown . x0 $
     sk .* (Pt (fromFieldP pk) (unsafeY pk))
+
+newtype SecretKey = SecretKey ByteString
+
+fromBytes :: ByteString -> SecretKey
+fromBytes bs
+    | B.length bs /= 32 = error "secret key should be 32 bytes"
+    | otherwise         =
+        SecretKey <$> B.unsafeCreate (B.length bs) $ \dPtr -> do
+            -- copy all the bytes as is
+            withBytePtr bs $ \sPtr -> B.memcpy (dPtr :: Ptr Word8) sPtr 32
+            -- then clamp the 3 lowest bits to 0, the top bit to 0, and 2nd top bit to 1
+            modifyByte dPtr 0 (\b -> b .&. 248)
+            modifyByte dPtr 31 (\b -> (b .&. 127) .|. 64)
+  where modifyByte :: Ptr Word8 -> Int -> (Word8 -> Word8) -> IO ()
+        modifyByte p o f = peekByteOff p o >>= pokeByteOff p o . f
+
+secretKeyToInteger :: SecretKey -> Integer
+secretKeyToInteger (SecretKey bs) = os2ip $ B.reverse bs

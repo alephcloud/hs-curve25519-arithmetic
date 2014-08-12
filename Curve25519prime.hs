@@ -26,35 +26,35 @@ instance Num FieldP where
 
 instance Fractional FieldP where
     recip (FieldP x) = FieldP (inv x p)
-    fromRational q
-        = fromInteger (numerator q)
-        / fromInteger (denominator q)
+    fromRational q = fromInteger (numerator q) / fromInteger (denominator q)
 
 a :: FieldP
 a = 486662
 
-add :: (FieldP,FieldP) -> (FieldP,FieldP) -> (FieldP,FieldP) -> (FieldP,FieldP)
-add (xn,zn) (xm,zm) (xd,zd) = let x = 4 * (xm * xn - zm * zn)^2 * zd
-                                  z = 4 * (xm * zn - zm * xn)^2 * xd
-                               in (x,z)
-
-double :: (FieldP,FieldP) -> (FieldP,FieldP)
-double (xn,zn) = let x = (xn^2 - zn^2)^2
-                     z = 4 * xn * zn * (xn^2 + a * xn * zn + zn^2)
-                  in (x,z)
-
 curve25519 :: Integer -> FieldP -> FieldP
-curve25519 n base = let one = (base,1)
-                        two = double one
-                        ((x,z),_) = f n
-                        f :: Integer -> ((FieldP,FieldP),(FieldP,FieldP))
-                        f m = if m == 1
-                              then (one,two)
-                              else let (pm,pm1) = f (m `div` 2) in
-                                  if odd m
-                                  then (add pm pm1 one, double pm1)
-                                  else (double pm, add pm pm1 one)
-                    in x/z
+curve25519 n base =
+    let one = (base,1)
+        two = double one
+        ((x,z),_) = ladder n
+        
+        ladder :: Integer -> ((FieldP,FieldP),(FieldP,FieldP))
+        ladder m = if m == 1
+                   then (one,two)
+                   else let (pm,pm1) = ladder (m `div` 2) in
+                       if odd m
+                       then (add pm pm1 one, double pm1)
+                       else (double pm, add pm pm1 one)
+                       
+        add :: (FieldP,FieldP) -> (FieldP,FieldP) -> (FieldP,FieldP) -> (FieldP,FieldP)
+        add (xn,zn) (xm,zm) (xd,zd) = let x = 4 * (xm * xn - zm * zn)^2 * zd
+                                          z = 4 * (xm * zn - zm * xn)^2 * xd
+                                       in (x,z)
+
+        double :: (FieldP,FieldP) -> (FieldP,FieldP)
+        double (xn,zn) = let x = (xn^2 - zn^2)^2
+                             z = 4 * xn * zn * (xn^2 + a * xn * zn + zn^2)
+                          in (x,z)
+     in x/z
 
 unpackI :: B.ByteString -> Integer
 unpackI s = if B.length s /= 32
@@ -77,5 +77,5 @@ dh :: B.ByteString -> B.ByteString -> B.ByteString
 dh sk pk = let FieldP x = curve25519 (unpackI $ clamp sk) (fromInteger $ unpackI pk)
             in packI x
 
-unsecret :: B.ByteString -> B.ByteString
-unsecret sk = dh sk (packI 9)
+publicize :: B.ByteString -> B.ByteString
+publicize sk = dh sk (packI 9)

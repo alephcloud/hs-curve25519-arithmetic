@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 -- ------------------------------------------------------ --
 -- Copyright © 2014 AlephCloud Systems, Inc.
 -- ------------------------------------------------------ --
@@ -33,6 +35,9 @@ import Data.Word
 import Foreign.Ptr (Ptr)
 import Foreign.Storable
 import Crypto.Number.Serialize
+import qualified Crypto.DH.Curve25519 as C
+
+--import Debug.Trace
 
 inv :: Integer -> Integer -> Integer
 inv = xEuclid 1 0 0 1 where
@@ -175,7 +180,8 @@ dhArith :: Integer -> FieldP -> FieldP
 dhArith sk pk = castDown . x0 $
     sk .* (Pt (fromFieldP pk) (unsafeY pk))
 
-newtype SecretKey = SecretKey ByteString
+newtype SecretKey = SecretKey ByteString deriving Show
+newtype PublicKey = PublicKey ByteString deriving Show
 
 fromBytes :: ByteString -> SecretKey
 fromBytes bs
@@ -190,5 +196,56 @@ fromBytes bs
   where modifyByte :: Ptr Word8 -> Int -> (Word8 -> Word8) -> IO ()
         modifyByte p o f = peekByteOff p o >>= pokeByteOff p o . f
 
+integerToSecretKey :: Integer -> SecretKey
+integerToSecretKey x = SecretKey . B.reverse $ i2ospOf_ 32 x
+
 secretKeyToInteger :: SecretKey -> Integer
 secretKeyToInteger (SecretKey bs) = os2ip $ B.reverse bs
+
+publicKeyToFieldP :: PublicKey -> FieldP
+publicKeyToFieldP (PublicKey bs) = fromInteger . os2ip $ B.reverse bs
+
+fieldPToPublicKey :: FieldP -> PublicKey
+fieldPToPublicKey (FieldP x) = PublicKey . B.reverse $ i2ospOf_ 32 x
+
+dh :: SecretKey -> PublicKey -> PublicKey
+dh sk pk = fieldPToPublicKey $ dhArith (secretKeyToInteger sk) (publicKeyToFieldP pk)
+
+secretKeyToCSecretKey :: SecretKey -> C.SecretKey
+secretKeyToCSecretKey (SecretKey sk) = C.SecretKey sk
+
+cSecretKeyToSecretKey :: C.SecretKey -> SecretKey
+cSecretKeyToSecretKey = SecretKey . C.unSecretKey
+
+publicKeyToCPublicKey :: PublicKey -> C.PublicKey
+publicKeyToCPublicKey (PublicKey sk) = C.PublicKey sk
+
+cPublicKeyToPublicKey :: C.PublicKey -> PublicKey
+cPublicKeyToPublicKey = PublicKey . C.unPublicKey
+
+montgomery :: Integer -> (FieldP , FieldP) -> (FieldP , FieldP)
+montgomery !k !xz | k<0 = montgomery (-k) xz
+montgomery 0 _ = (0,1)
+montgomery 1 !xz = xz
+montgomery 2 (!x,!z) =
+   let xmzsq = (x-z)^2
+       xpzsq = (x+z)^2
+       a' = 121665
+       d = xpzsq - xmzsq
+       x2 = xmzsq * xpzsq
+       z2 = d*(xpzsq + a'*d)
+   in (x2,z2)
+montgomery k xz | even k = montgomery 2 (montgomery (k `div` 2) xz)
+montgomery k (x,z) | odd k =
+     let n = 
+         m = n+1
+         (xn,zn) = montgomery n (x,z)
+         (xm,zm) = montgomery m (x,z)
+         d1 = (xm - zm)*(xn + zn)
+         d2 = (xm + zm)*(xn - zn)
+         xk = z * (d1 + d2)^2
+         zk = x * (d1 - d2)^2
+    in (xk,zk)
+
+montgomery' :: Integer -> FieldP -> FieldP
+montgomery' !k !x = uncurry (/) $ montgomery k (x,1)

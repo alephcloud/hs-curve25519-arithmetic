@@ -31,10 +31,9 @@ a :: FieldP
 a = 486662
 
 curve25519 :: Integer -> FieldP -> FieldP
-curve25519 n base =
-    let one = (base,1)
+curve25519 n base = let ((x,z),_) = ladder n in x/z where
+        one = (base,1)
         two = double one
-        ((x,z),_) = ladder n
         
         ladder :: Integer -> ((FieldP,FieldP),(FieldP,FieldP))
         ladder m = if m == 1
@@ -53,7 +52,6 @@ curve25519 n base =
         double (xn,zn) = let x = (xn^2 - zn^2)^2
                              z = 4 * xn * zn * (xn^2 + a * xn * zn + zn^2)
                           in (x,z)
-     in x/z
 
 unpackI :: B.ByteString -> Integer
 unpackI s = if B.length s /= 32

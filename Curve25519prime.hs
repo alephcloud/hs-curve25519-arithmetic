@@ -3,11 +3,9 @@ import qualified Data.ByteString as B
 
 inv :: Integer -> Integer -> Integer
 inv = xEuclid 1 0 0 1 where
-    xEuclid x0 y0 x1 y1 u v
-        | v == 0 = x0
-        | otherwise =
-            let (q , r) = u `divMod` v
-            in xEuclid x1 y1 (x0-q*x1) (y0-q*y1) v r
+    xEuclid x0 y0 x1 y1 u v | v == 0 = x0
+                            | otherwise = let (q , r) = u `divMod` v
+                                           in xEuclid x1 y1 (x0-q*x1) (y0-q*y1) v r
 
 newtype FieldP = FieldP Integer
     deriving (Eq, Show)

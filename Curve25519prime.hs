@@ -1,6 +1,5 @@
 import Data.Ratio (numerator, denominator)
 import qualified Data.ByteString as B
-import Data.Bits
 
 inv :: Integer -> Integer -> Integer
 inv = xEuclid 1 0 0 1 where
